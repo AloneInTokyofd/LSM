@@ -1,5 +1,29 @@
-opencv-python
-mediapipe
-gTTS
-playsound
-Pillow
+# ══════════════════════════════════════════════════════════════════
+# requirements.txt — Sistema LSM Dinámico
+# Laboratorio de Inteligencia Artificial (LIA) - CECyT 16, IPN
+# ══════════════════════════════════════════════════════════════════
+#
+# Instalación:
+#   pip install -r requirements.txt
+#
+# Para GPU NVIDIA (opcional, acelera entrenamiento):
+#   pip install tensorflow[and-cuda]  (TF >= 2.14)
+#   o bien: pip install tensorflow-gpu==2.12.0
+# ══════════════════════════════════════════════════════════════════
+
+# ── Deep Learning ─────────────────────────────────────────────────
+tensorflow>=2.12.0,<2.16.0          # Motor LSTM; 2.12-2.15 soportan Holistic
+
+# ── Visión por Computadora ────────────────────────────────────────
+opencv-python>=4.8.0                # Captura, procesamiento y UI de video
+mediapipe>=0.10.0,<0.11.0          # Detección Holistic (manos, pose, cara)
+                                    # Nota: Holistic fue deprecado en 0.10.14+
+                                    # Usa mediapipe==0.10.14 para máxima estabilidad
+
+# ── Ciencia de Datos ──────────────────────────────────────────────
+numpy>=1.24.0,<2.0.0               # Operaciones matriciales (compatible con TF)
+scikit-learn>=1.3.0                 # Train/test split, métricas, class weights
+
+# ── Visualización ─────────────────────────────────────────────────
+matplotlib>=3.7.0                   # Gráficas de entrenamiento
+seaborn>=0.12.0                     # Matriz de confusión con heatmap

@@ -1,0 +1,89 @@
+# ══════════════════════════════════════════════════════════════════
+# .gitignore — Sistema LSM Dinámico
+# Laboratorio de Inteligencia Artificial (LIA) - CECyT 16, IPN
+# ══════════════════════════════════════════════════════════════════
+
+# ── Entornos virtuales ────────────────────────────────────────────
+venv/
+venv_lsm/
+.venv/
+env/
+ENV/
+.env/
+
+# ── Modelo entrenado y artefactos de entrenamiento ────────────────
+# Los modelos son pesados (50MB–500MB) y se regeneran con train.py
+models/lsm_model.h5
+models/lsm_model.keras
+models/label_map.json
+models/training_history.png
+models/confusion_matrix.png
+models/logs/
+
+# ── Dataset de secuencias ─────────────────────────────────────────
+# Los .npy pueden sumar GBs. Sube solo la estructura, no los datos.
+LSM_Dataset/**/*.npy
+
+# ── Sesiones guardadas ────────────────────────────────────────────
+sesiones/
+
+# ── Logos (archivos de imagen locales) ───────────────────────────
+assets/logo_lia.png
+assets/logo_cecyt16.png
+
+# ── Python ────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ── Jupyter / IPython ─────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+
+# ── NumPy / datos temporales ──────────────────────────────────────
+*.npy
+*.npz
+*.pkl
+*.pickle
+
+# ── TensorFlow / Keras ────────────────────────────────────────────
+*.h5
+*.keras
+*.pb
+*.tflite
+saved_model/
+checkpoint/
+*.ckpt
+*.ckpt.*
+*.index
+*.data-*
+
+# ── TensorBoard ───────────────────────────────────────────────────
+runs/
+tb_logs/
+
+# ── IDEs ──────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ── Coverage / tests ──────────────────────────────────────────────
+.coverage
+htmlcov/
+.pytest_cache/
+
+# ── Misceláneos ───────────────────────────────────────────────────
+*.log
+*.tmp
+*.bak
