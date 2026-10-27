@@ -258,6 +258,9 @@ def collect_data() -> None:
                         abort = True
                         break
 
+                    # Mantener la misma orientación espejo que en main.py,
+                    # para que entrenamiento y reconocimiento usen los mismos datos.
+                    frame = cv2.flip(frame, 1)
                     image, results = mediapipe_detection(frame, holistic)
                     draw_styled_landmarks(image, results)
                     _draw_waiting_screen(image, action, seq, total_seqs,
@@ -282,6 +285,8 @@ def collect_data() -> None:
                         abort = True
                         break
 
+                    # La secuencia se guarda con la misma orientación espejo.
+                    frame = cv2.flip(frame, 1)
                     image, results = mediapipe_detection(frame, holistic)
                     draw_styled_landmarks(image, results)
                     _draw_recording_ui(image, action, seq, frame_num,

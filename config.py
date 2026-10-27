@@ -33,7 +33,7 @@ ACTIONS = np.array([
 # 2.  PARÁMETROS DE SECUENCIA Y RECOLECCIÓN DE DATOS
 # ═══════════════════════════════════════════════════════════════════════════════
 SEQUENCE_LENGTH  = 30      # Fotogramas por secuencia (eje temporal del LSTM)
-NUM_SEQUENCES    = 30      # Número de secuencias por clase
+NUM_SEQUENCES    = 60      # Meta recomendada de secuencias por clase (mínimo para entrenar: 30)
 START_FOLDER     = 0       # Índice inicial de carpeta (útil para recolección incremental)
 COLLECT_WAIT_MS  = 2000    # Pausa (ms) entre secuencias para que el usuario se prepare
 

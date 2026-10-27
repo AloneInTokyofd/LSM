@@ -1,0 +1,28 @@
+'use strict';
+const assert = require('node:assert/strict');
+const ContinuousCapture = require('../static/continuous.js');
+
+const batch = new ContinuousCapture();
+for (const limit of [0, 1, 4, 61, 5.5, '5']) assert.throws(() => batch.start(limit));
+const minimum = batch.start(5);
+for (let n = 1; n <= 5; n++) assert.equal(batch.complete(`minimum-${n}`, minimum).done, n === 5);
+const first = batch.start(30);
+assert.throws(() => batch.start(30));
+assert.deepEqual(batch.complete('take-1', first), {count:1, limit:30, done:false});
+assert.equal(batch.complete('take-1', first), null);
+assert.equal(batch.count, 1);
+for (let n = 2; n < 30; n++) assert.equal(batch.complete(`take-${n}`, first).done, false);
+assert.deepEqual(batch.complete('take-30', first), {count:30, limit:30, done:true});
+assert.equal(batch.active, false);
+assert.equal(batch.complete('take-4', first), null);
+const second = batch.start(60);
+batch.complete('new-take', second);
+batch.stop();
+assert.equal(batch.current(second), false);
+assert.equal(batch.count, 1, 'Detener no pierde el contador de tomas completas.');
+assert.equal(batch.complete('late-take', second), null);
+const third = batch.start(30);
+assert.equal(batch.complete('stale-take', second), null, 'Una respuesta antigua no puede avanzar otra tanda.');
+assert.equal(batch.count, 0);
+assert.equal(batch.current(third), true);
+console.log('Grabación consecutiva: límites, repetidos, finalización y cancelación comprobados.');

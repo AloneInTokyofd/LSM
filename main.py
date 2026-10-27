@@ -13,7 +13,7 @@ de confirmar y mostrar una predicción.
 CONTROLES
 ──────────
   Q / ESC → Salir limpiamente.
-  R       → Resetear buffer y estado de predicción.
+  R       → Resetear buffer y estado de predicción.y l
   C       → Limpiar la oración construida en pantalla.
   S       → Guardar la oración actual en sesiones/<timestamp>.txt.
 
@@ -414,6 +414,11 @@ class LSMRecognizer:
                     print('[ERROR] No se puede leer el frame. '
                           '¿Cámara desconectada?')
                     break
+
+                # Mostrar como espejo horizontal: la mano derecha del usuario
+                # queda en el lado derecho de la ventana. Aplicamos el mismo
+                # cambio antes de MediaPipe para mantener consistencia espacial.
+                frame = cv2.flip(frame, 1)
 
                 # ── Detección MediaPipe ───────────────────────────
                 image, results = mediapipe_detection(frame, holistic)

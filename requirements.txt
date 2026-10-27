@@ -16,7 +16,7 @@ tensorflow>=2.12.0,<2.16.0          # Motor LSTM; 2.12-2.15 soportan Holistic
 
 # ── Visión por Computadora ────────────────────────────────────────
 opencv-python>=4.8.0                # Captura, procesamiento y UI de video
-mediapipe>=0.10.0,<0.11.0          # Detección Holistic (manos, pose, cara)
+mediapipe==0.10.14          # Detección Holistic (manos, pose, cara)
                                     # Nota: Holistic fue deprecado en 0.10.14+
                                     # Usa mediapipe==0.10.14 para máxima estabilidad
 

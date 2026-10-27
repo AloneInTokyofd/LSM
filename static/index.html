@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Seña · Laboratorio de lenguas de señas</title>
+  <link rel="stylesheet" href="/static/styles.css"><script defer src="/static/continuous.js"></script><script defer src="/static/app.js"></script>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <a class="brand" href="/" aria-label="Seña, inicio"><span class="brand-mark">s<span>·</span></span> seña<span class="brand-period">.</span></a>
+    <p class="sidebar-caption">UN ESPACIO PARA ENTENDERNOS</p>
+    <div class="sidebar-title">Lenguas de señas <span>07</span></div>
+    <nav id="languages" aria-label="Elegir lengua de señas"></nav>
+    <div class="sidebar-note"><span class="local-dot"></span><strong>Tu laboratorio local</strong><p>La cámara se procesa en tu computadora. Los ejemplos se guardan como puntos, sin video.</p></div>
+  </aside>
+  <main>
+    <header class="topbar"><span>LABORATORIO / <b id="breadcrumb">LSM</b></span><span class="quiet">Cámara · Aprendizaje · Práctica</span></header>
+    <section class="intro"><div><div class="eyebrow">CONECTA A TRAVÉS DEL MOVIMIENTO</div><h1>Tu próxima conversación<br>empieza con una seña<span>.</span></h1><p>Entrena con ejemplos reales. Prueba lo aprendido, una lengua a la vez.</p></div><div class="intro-tag"><span>7</span><small>lenguas de señas<br>un espacio de práctica</small></div></section>
+    <details class="quick-guide"><summary>Guía rápida · ¿Cómo uso esta app?</summary><ol><li><strong>Elige la lengua</strong> en el menú. Para practicar letras, abre el abecedario.</li><li><strong>Graba tus ejemplos</strong> en “Capturar y entrenar”. Activa la cámara y elige una toma individual o una tanda consecutiva.</li><li><strong>Nombra y guarda</strong> cada toma. Repetir el mismo nombre suma ejemplos de esa seña; cada lengua tiene su propio vocabulario.</li><li><strong>Entrena</strong> al reunir al menos 30 ejemplos por palabra o letra (recomendado: 30–60) para dos señas diferentes. “Épocas máximas” limita las vueltas que el modelo da a los ejemplos de entrenamiento.</li><li><strong>Prueba el resultado</strong> en “Probar modelo”. Realiza una seña entrenada, espera la confirmación y baja las manos para repetirla.</li></ol><p class="help">Las tomas guardan puntos de manos, cara y cuerpo para entrenar. No se guardan archivos de video ni audio. La pestaña “Cómo usarlo” tiene más detalles.</p></details>
+    <div id="notice" role="status" aria-live="polite" hidden></div>
+    <section class="workspace">
+      <div class="workspace-heading"><div><span class="small-label">ESTÁS TRABAJANDO EN</span><h2 id="language-name">Lengua de Señas Mexicana</h2><p id="language-detail">México · Texto en español</p></div><span id="model-badge" class="badge">Consultando modelo…</span></div>
+      <div class="tabs" role="tablist" aria-label="Secciones"><button type="button" role="tab" aria-selected="true" id="tab-test" data-mode="test">01 <span>Probar modelo</span></button><button type="button" role="tab" aria-selected="false" id="tab-train" data-mode="train">02 <span>Capturar y entrenar</span></button><button type="button" role="tab" aria-selected="false" id="tab-guide" data-mode="guide">03 <span>Cómo usarlo</span></button></div>
+      <section id="alphabet-panel" class="alphabet-panel" hidden>
+        <details open><summary>Abecedario y caracteres <span id="alphabet-count"></span></summary>
+          <h3 id="alphabet-title"></h3><p id="alphabet-note" class="help"></p>
+          <div class="alphabet-actions"><button id="add-alphabet" class="primary" type="button">Añadir todo el abecedario</button><button id="add-all-alphabets" class="secondary" type="button">Añadir bases a las 7 lenguas</button></div>
+          <p id="alphabet-progress" class="help"></p><div id="alphabet-grid" class="alphabet-grid" aria-label="Letras y ejemplos"></div>
+          <details id="alphabet-extras"><summary>Variantes escritas adicionales</summary><button id="add-alphabet-extras" class="secondary" type="button">Añadir variantes al vocabulario</button><div id="alphabet-extra-grid" class="alphabet-grid"></div></details>
+          <p id="alphabet-selection" class="help">Selecciona una letra para preparar su nombre al terminar la grabación.</p>
+          <button id="clear-alphabet-selection" class="text-button" type="button" hidden>Volver a grabar señas libres</button>
+          <p class="help">Añadir letras crea las etiquetas. Para reconocerlas, graba ejemplos de cada una y entrena. Puedes comenzar con dos letras; las letras sin ejemplos no bloquean el entrenamiento. Confirma el gesto y sus variantes con una persona conocedora de esa lengua.</p>
+          <a id="alphabet-source" target="_blank" rel="noopener noreferrer" hidden>Referencia de dactilología ↗</a>
+        </details>
+      </section>
+      <div id="camera-workspace" class="workspace-grid">
+        <div class="camera-column">
+          <section class="camera-selector" aria-label="Cámaras conectadas"><label for="camera-device">Cámara</label><div class="input-row"><select id="camera-device"><option value="">Cámara predeterminada</option></select><button id="refresh-cameras" class="secondary" type="button">Detectar cámaras</button></div><p id="camera-device-status" class="help" role="status">Activa la cámara para autorizar el acceso y mostrar los nombres disponibles. Cambiar de cámara detiene la toma en curso.</p></section>
+          <div class="camera-panel">
+            <video id="camera" autoplay playsinline muted hidden></video>
+            <div id="camera-placeholder" class="camera-placeholder"><div class="camera-symbol" aria-hidden="true">◉</div><h3>Haz espacio para tus manos</h3><p>Encuadra el rostro, el torso y ambas manos.<br>Busca buena luz y un fondo tranquilo.</p><button id="start-camera" class="primary">Activar cámara <span>↗</span></button></div>
+            <div class="camera-top"><span class="camera-label"><i></i> VISTA EN ESPEJO</span><span id="camera-state">Cámara apagada</span></div>
+            <div class="camera-bottom"><span id="capture-instruction">La cámara se activa solo cuando tú lo decides.</span><span id="frame-counter">0 / 30</span></div>
+          </div>
+          <progress id="frame-progress" max="30" value="0" aria-label="Fotogramas de la secuencia"></progress>
+          <div class="camera-actions"><span id="hands-status">Tu mano derecha aparecerá a la derecha.</span><button id="stop-camera" class="text-button" disabled>Apagar cámara</button></div>
+          <div id="capture-controls" hidden>
+            <div class="capture-steps"><span>1. Graba</span><span>2. Ponle nombre</span><span>3. Guarda y entrena</span></div>
+            <button id="record" class="primary wide" disabled>Grabar una seña</button>
+            <details class="continuous-controls" open><summary>Grabar ejemplos consecutivos</summary><p class="help">Inicia una tanda y repite tu seña cuando termine cada cuenta atrás. La cámara sigue encendida y cada toma completa queda pendiente para nombrarla después.</p><div class="continuous-settings"><label for="batch-limit">Número de tomas (5–60; recomendado: 30–60)<input id="batch-limit" type="number" min="5" max="60" value="30"></label><label for="batch-pause">Pausa entre tomas (segundos)<input id="batch-pause" type="number" min="1" max="10" value="3"></label></div><div class="input-row"><button id="start-batch" class="primary" type="button" disabled>Iniciar grabación consecutiva</button><button id="stop-batch" class="secondary" type="button" disabled>Detener tanda</button></div><p id="batch-status" class="help" role="status" aria-live="polite">Activa la cámara para iniciar. No necesitas pulsar “Grabar una seña” entre tomas.</p></details>
+            <p class="help">Primero haz tu seña frente a la cámara. Al terminar te pediremos su nombre y la guardaremos en la lengua seleccionada.</p>
+            <form id="name-capture" class="name-capture" hidden>
+              <span class="small-label">GRABACIÓN COMPLETA · PASO 2</span>
+              <h3>¿Qué significa esta seña?</h3>
+              <p id="draft-language" class="help"></p>
+              <label id="draft-picker-label" for="draft-picker" hidden>Grabaciones pendientes</label>
+              <select id="draft-picker" hidden></select>
+              <label for="sign-name">Nombre o significado</label>
+              <input id="sign-name" type="text" maxlength="80" required autocomplete="off" list="sign-suggestions" placeholder="Por ejemplo: Agua, Wasser, 水…">
+              <datalist id="sign-suggestions"></datalist>
+              <p class="help">Puedes escribir una seña nueva o repetir un nombre existente para sumar otro ejemplo.</p>
+              <div class="input-row"><button id="save-capture" type="submit" class="primary">Guardar e integrar</button><button id="discard-capture" type="button" class="text-button">Descartar y repetir</button></div>
+              <p class="help">Se añadirá a tu vocabulario y a los ejemplos de entrenamiento. Actualiza el modelo cuando tengas suficientes ejemplos para reconocerla.</p>
+            </form>
+          </div>
+          <div id="test-controls"><label for="expected-label">Para comprobar el resultado, ¿qué seña vas a hacer?</label><select id="expected-label"><option value="">Práctica libre</option></select><p class="help">Espera una confirmación. Baja las manos unos instantes para repetir la misma seña.</p></div>
+        </div>
+        <aside class="results-column">
+          <div id="test-results">
+            <div class="result-card"><div class="card-heading"><span class="small-label">RESULTADO EN VIVO</span><span id="output-language" class="mini-badge">ESPAÑOL</span></div><div id="result-word" class="result-word">Todo empieza<br>con un gesto.</div><p id="result-description">Primero necesitas un modelo entrenado para esta lengua.</p><div class="confidence-row"><span>Confianza del modelo</span><strong id="confidence">—</strong></div><progress id="confidence-progress" max="100" value="0" aria-label="Confianza"></progress><div class="stability-row"><span id="stability">Esperando una secuencia</span><button id="speak" class="text-button" disabled>Escuchar ↗</button></div></div>
+            <div class="history-card"><div class="card-heading"><h3>Señas confirmadas</h3><button id="clear-history" class="text-button">Limpiar</button></div><p id="history-empty" class="help">Las confirmaciones aparecerán aquí. Esta lista reúne palabras; no traduce conversaciones completas.</p><div id="history" class="chips"></div><div class="practice-summary"><span>Autoevaluación de esta sesión</span><strong id="practice-score">0 / 0 aciertos</strong></div><button id="download" class="secondary" disabled>Descargar sesión ↓</button></div>
+          </div>
+          <div id="training-results" hidden>
+            <div class="training-card"><span class="small-label">TU CUADERNO DE EJEMPLOS</span><h3>Enseña una seña.<br>Repite. Dale variedad.</h3><p class="help">Puedes grabar tandas desde 5 tomas. Para entrenar y probar, reúne un mínimo de 30 ejemplos por palabra o letra y 2 señas distintas. Recomendamos entre 30 y 60 por palabra o letra, grabados con variaciones de posición, velocidad, iluminación y personas.</p><div id="sample-list"></div><div class="train-settings"><label for="epochs">Épocas máximas</label><input id="epochs" type="number" min="5" max="200" value="40"></div><button id="train-model" class="primary wide" disabled>Entrenar modelo ↗</button><p id="train-reason" class="help"></p></div>
+          </div>
+        </aside>
+      </div>
+      <div id="guide" class="guide" hidden>
+        <article><span>01 / PREPARA</span><h3>Elige la lengua real</h3><p>LSM, DGS, ASL, JSL, CSL, LSF y Libras son lenguas distintas, con variaciones regionales. ASL corresponde aquí a Estados Unidos y Libras a Brasil. El chino mandarín es el idioma del texto de salida del perfil CSL.</p></article>
+        <article><span>02 / ENSEÑA</span><h3>Graba ejemplos completos</h3><p>En “Capturar y entrenar”, elige la lengua, activa la cámara y graba la seña. Al terminar, escribe su nombre y pulsa “Guardar e integrar”. Un nombre nuevo se añade al vocabulario; repetir un nombre suma otro ejemplo. Aprende y graba la seña con una persona conocedora de esa lengua. Las etiquetas escritas no enseñan cómo hacer el gesto. Reúne al menos 30 ejemplos por palabra o letra (recomendado: 30–60) para dos señas distintas.</p></article>
+        <article><span>03 / ENTRENA</span><h3>Un modelo para cada lengua</h3><p>El entrenamiento reserva ejemplos para validación y prueba. Al terminar, activa automáticamente el mejor modelo de esa lengua. Puedes ver el avance y los resultados aquí. Los datos y modelos de las demás lenguas permanecen separados.</p></article>
+        <article><span>04 / PRACTICA</span><h3>Comprueba con nuevas señas</h3><p>En “Probar modelo”, selecciona la seña esperada y compara el resultado. Las puntuaciones sobre tus propios ejemplos no garantizan el mismo rendimiento con otras personas. Solo se reconocen las clases entrenadas; no hay traducción de conversaciones libres.</p></article>
+        <div class="guide-note"><strong>¿Ya hay modelos para las siete lenguas?</strong><p>No se incluyen siete modelos preentrenados. Cada perfil indica si tiene un modelo válido o si necesita ejemplos. Los modelos públicos de investigación pueden usar otras entradas, clases y arquitecturas y necesitan adaptación.</p><a href="https://www.sign-lang.uni-hamburg.de/lr/compendium/language/index.html" target="_blank" rel="noopener noreferrer">Consultar recursos por lengua · Universidad de Hamburgo ↗</a></div>
+      </div>
+    </section>
+    <section id="job-panel" class="job-panel" hidden aria-live="polite"><div><span class="small-label">ENTRENAMIENTO</span><h3 id="job-title"></h3><p id="job-description"></p></div><div class="job-meter"><progress id="job-progress" max="40" value="0"></progress><span id="job-metrics"></span></div></section>
+    <div id="model-summary" class="model-summary"></div>
+    <details class="model-metrics-panel"><summary>Ver evaluación del modelo</summary><div id="model-metrics" class="model-summary"></div><p class="help">La precisión indica cuántas predicciones de una clase acertaron; la recuperación, cuántos ejemplos de esa clase se reconocieron. El F1 combina ambas. Más confianza no garantiza un acierto: comprueba también con personas y sesiones nuevas.</p></details>
+    <div id="legacy-note" class="legacy-note" hidden>Existe un modelo del programa de escritorio. Esta página usa modelos entrenados con su propio flujo de captura para mantener la misma orientación, frecuencia y etiquetas. El archivo anterior se conserva.</div>
+    <footer><span>SEÑA / LABORATORIO LOCAL</span><span>Reconocimiento de señas aisladas · En desarrollo</span></footer>
+  </main>
+</div>
+<canvas id="frame-canvas" width="640" height="480" hidden></canvas>
+</body></html>

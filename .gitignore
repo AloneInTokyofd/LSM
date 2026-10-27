@@ -87,3 +87,12 @@ htmlcov/
 *.log
 *.tmp
 *.bak
+# Datos, caché, trabajos y versiones de modelos de la página local
+web_data/
+models/lsm/
+models/dgs/
+models/asl/
+models/jsl/
+models/csl/
+models/lsf/
+models/libras/

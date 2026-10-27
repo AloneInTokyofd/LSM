@@ -68,7 +68,7 @@ def load_dataset() -> tuple[np.ndarray, np.ndarray, dict[int, str]]:
     Recorre LSM_Dataset/ y carga todas las secuencias como arrays NumPy.
 
     Manejo de errores:
-      · Si falta un frame .npy, se rellena con ceros (sin detección).
+      · Si falta un frame .npy, se omite la secuencia incompleta.
       · Si la dimensión de un frame no coincide con FEATURE_DIM, se omite
         la secuencia y se emite un aviso.
       · Señas sin secuencias válidas generan una advertencia, no un crash.
@@ -106,17 +106,19 @@ def load_dataset() -> tuple[np.ndarray, np.ndarray, dict[int, str]]:
                 npy = os.path.join(seq_path, f'frame_{frame_num:03d}.npy')
                 if os.path.exists(npy):
                     kp = np.load(npy).astype(np.float32)
-                    if kp.shape[0] != FEATURE_DIM:
-                        print(f'  [SKIP] {npy}: dim={kp.shape[0]} ≠ {FEATURE_DIM}')
+                    if kp.shape != (FEATURE_DIM,) or not np.isfinite(kp).all():
+                        print(f'  [SKIP] {npy}: dimensiones o valores inválidos ({kp.shape})')
                         valid = False
                         skipped += 1
                         break
                     window.append(kp)
                 else:
-                    # Frame faltante → cero (sin detección en ese instante)
-                    window.append(np.zeros(FEATURE_DIM, dtype=np.float32))
+                    # Una carpeta vacía o una captura incompleta no es un ejemplo.
+                    valid = False
+                    skipped += 1
+                    break
 
-            if valid and len(window) == SEQUENCE_LENGTH:
+            if valid and len(window) == SEQUENCE_LENGTH and np.any(window):
                 sequences.append(np.stack(window, axis=0))
                 labels.append(label_idx)
                 loaded += 1
@@ -236,6 +238,13 @@ def train() -> None:
     # ── 1. Cargar datos ──────────────────────────────────────────
     X, y, label_map = load_dataset()
     num_classes     = len(label_map)
+    counts = np.bincount(y, minlength=num_classes)
+    missing = [f'{label_map[i]}: {int(count)}' for i, count in enumerate(counts) if count < 30]
+    if num_classes < 2 or missing:
+        raise ValueError(
+            'Se necesitan al menos dos señas y 30 secuencias completas por cada seña de ACTIONS. '
+            'Recolecta más ejemplos o ajusta ACTIONS antes de entrenar. ' + ', '.join(missing)
+        )
 
     # ── 2. One-hot encoding ──────────────────────────────────────
     lb       = LabelBinarizer()
@@ -255,6 +264,7 @@ def train() -> None:
         X_tv, y_tv,
         test_size=val_frac,
         random_state=RANDOM_SEED,
+        stratify=y_tv_int,
     )
 
     print(f'\n[INFO] Split → Train: {len(X_train)}  '

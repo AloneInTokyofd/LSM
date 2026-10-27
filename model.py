@@ -39,6 +39,25 @@ from tensorflow.keras.regularizers import l2
 from config import SEQUENCE_LENGTH, FEATURE_DIM, ACTIONS
 
 
+def build_web_model(num_classes: int, learning_rate: float = 5e-4, input_dim: int = FEATURE_DIM) -> tf.keras.Model:
+    """BiLSTM más compacto para datasets personales con pocas decenas de ejemplos."""
+    model = Sequential(name='Sign_Web_Compact', layers=[
+        Input(shape=(SEQUENCE_LENGTH, input_dim)),
+        TimeDistributed(Dense(96, activation='relu', kernel_regularizer=l2(1e-4))),
+        LayerNormalization(),
+        Dropout(.2),
+        Bidirectional(LSTM(64, return_sequences=True, kernel_regularizer=l2(1e-4))),
+        Dropout(.3),
+        Bidirectional(LSTM(32, kernel_regularizer=l2(1e-4))),
+        Dense(64, activation='relu', kernel_regularizer=l2(1e-4)),
+        Dropout(.4),
+        Dense(num_classes, activation='softmax'),
+    ])
+    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate, clipnorm=1.0),
+                  loss='categorical_crossentropy', metrics=['accuracy'])
+    return model
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # MODELO 1: BiLSTM con Proyección Temporal
 # ══════════════════════════════════════════════════════════════════════════════
