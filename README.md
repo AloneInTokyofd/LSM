@@ -491,3 +491,39 @@ cualquier ángulo: no reconstruyen manos ocultas ni simulan correctamente giros 
 Graba ejemplos reales desde varios ángulos moderados, distancias y sesiones;
 comprueba después con tomas nuevas desde cada posición. Algunas orientaciones
 cambian el significado de la seña y deben conservarse.
+
+### Borrar ejemplos como administrador
+
+En **Capturar y entrenar**, abre **Administración · Borrar grabaciones**.
+Selecciona la palabra o letra, escribe la contraseña de administrador y marca la
+confirmación. Se borran del dataset todos sus ejemplos guardados, incluidos los
+archivos inválidos. El nombre de la seña y las tomas pendientes sin nombre se conservan. Si la seña
+pertenecía al modelo activo, este se desactiva inmediatamente y se limpia su caché
+para impedir que siga reconociéndola. La versión anterior queda guardada como
+respaldo. Reentrena con las clases restantes para actualizar su vocabulario
+(se mantienen los requisitos de al menos dos clases y 30 ejemplos por clase).
+
+El servidor verifica la contraseña en cada eliminación. Guarda únicamente un hash
+PBKDF2-SHA256 con sal en `web_data/admin/auth.json`; no publica ese archivo y no
+almacena la contraseña en el navegador. Cinco intentos incorrectos bloquean nuevos
+intentos durante cinco minutos. La carpeta de autenticación queda excluida de Git.
+No se permite borrar durante entrenamiento o captura activa.
+
+Los archivos se mueven a `web_data/trash/<lengua>/<id>/<etiqueta>/` junto con un
+registro `deletion.json`. Para recuperarlos manualmente, detén la aplicación y
+copia los archivos `.npz` a `web_data/datasets/<lengua>/<etiqueta>/`. No se necesita
+recuperar ni modificar el vocabulario. Esta protección corresponde a operaciones
+de la página local; una persona con acceso directo a los archivos del equipo puede
+modificarlos fuera de la aplicación.
+
+### Rig visible de detección
+
+Activa la cámara y pulsa **Activar rig** en su esquina superior derecha. Se
+superponen las conexiones de brazos, torso y dedos y los puntos faciales usados
+por el sistema. Las manos tienen colores distintos. **Ocultar rig** retira la
+superposición. Funciona tanto al grabar como al probar el modelo; no requiere
+reentrenar. El servidor devuelve los puntos del mismo fotograma procesado por
+MediaPipe y solo los envía cuando el rig está activado. La vista ya está reflejada,
+por lo que la capa no vuelve a invertir las coordenadas. El dibujo respeta las
+bandas del video y se limpia al detener la cámara o dejar de recibir detecciones.
+La visualización puede llevar un pequeño retraso respecto al video de la cámara.

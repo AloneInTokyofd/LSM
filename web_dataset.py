@@ -2,6 +2,7 @@
 import json
 import os
 import uuid
+from datetime import datetime, timezone
 import zipfile
 from pathlib import Path
 import numpy as np
@@ -63,10 +64,39 @@ def inventory(language):
     _INVENTORY_CACHE[key] = (fingerprint, result)
     return result
 
-def read_dataset(language, minimum):
+def archive_label(language, label):
+    """Retira de forma atómica una clase del dataset y conserva sus archivos."""
+    validate_label(language, label)
+    source = dataset_dir(language) / label
+    if source.is_symlink():
+        raise ValueError('La carpeta de ejemplos no puede ser un enlace simbólico.')
+    samples = list(source.glob('*.npz'))
+    if not samples:
+        raise ValueError('Esta palabra o letra no tiene grabaciones guardadas para borrar.')
+    identifier = uuid.uuid4().hex
+    archive = dataset_dir(language).parent.parent / 'trash' / language / identifier
+    archive.mkdir(parents=True, exist_ok=False)
+    # Escribir el registro primero: si falla, el dataset aún no se ha modificado.
+    (archive / 'deletion.json').write_text(json.dumps({
+        'id': identifier, 'language': language, 'label': label, 'samples': len(samples),
+        'deleted_at': datetime.now(timezone.utc).isoformat(),
+    }, ensure_ascii=False, indent=2), encoding='utf-8')
+    os.rename(source, archive / label)
+    _INVENTORY_CACHE.clear()
+    return {'deleted': len(samples), 'archive_id': identifier}
+
+
+def read_dataset(language, minimum, label_ids=None):
+    if label_ids is not None:
+        if not isinstance(label_ids, list) or len(label_ids) < 2 or any(not isinstance(label, str) for label in label_ids) or len(set(label_ids)) != len(label_ids):
+            raise ValueError('Selecciona al menos dos señas diferentes para entrenar.')
+        for label in label_ids:
+            validate_label(language, label)
     arrays, targets, labels = [], [], []
     for item in inventory(language):
-        if item['samples'] == 0:
+        if label_ids is not None and item['id'] not in label_ids:
+            continue
+        if item['samples'] == 0 and label_ids is None:
             continue
         if item['samples'] < minimum:
             raise ValueError(f"{item['text']}: requiere al menos {minimum} ejemplos completos; hay {item['samples']}.")

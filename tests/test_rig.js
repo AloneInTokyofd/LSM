@@ -1,0 +1,18 @@
+'use strict';
+const assert = require('node:assert/strict');
+const RigOverlay = require('../static/rig.js');
+const lines=[], dots=[];
+const context={clearRect:()=>{},beginPath:()=>{},moveTo:(x,y)=>lines.push([x,y]),lineTo:(x,y)=>lines.push([x,y]),stroke:()=>{},arc:(x,y)=>dots.push([x,y]),fill:()=>{}};
+const canvas={width:640,height:480,hidden:true,getContext:()=>context};
+const rig=new RigOverlay(canvas);
+const data={width:640,height:480,left:[[.7,.5],[.8,.6]],right:[],pose:[],face:[]};
+rig.draw(data); assert.equal(canvas.hidden,true); assert.equal(dots.length,0);
+rig.setEnabled(true);rig.draw(data);
+assert.equal(canvas.hidden,false);assert.deepEqual(lines,[[448,240],[512,288]]);
+assert.deepEqual(dots,[[448,240],[512,288]]);
+rig.draw({width:480,height:640,left:[null,[NaN,.5]],face:[],right:[],pose:[]});
+assert.equal(canvas.width,480); assert.equal(canvas.height,640);
+assert.equal(dots.length,2,'No dibujar puntos ausentes o no finitos.');
+rig.setEnabled(false);assert.equal(canvas.hidden,true);
+rig.setEnabled(true);rig.draw(data);rig.clear();assert.equal(canvas.hidden,true);
+console.log('Rig: alternancia, coordenadas reflejadas, tamaño y puntos ausentes comprobados.');

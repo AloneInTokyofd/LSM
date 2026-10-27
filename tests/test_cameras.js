@@ -15,7 +15,7 @@ const streamMock = () => ({getTracks:() => [{stop:() => stopped++}], getVideoTra
 const sandbox = { $, navigator:{mediaDevices:{enumerateDevices:async () => devices, getUserMedia:async c => { constraints = c; return streamMock(); }}},
   makeOption:(value, text) => ({value, text}), api:async path => { if (path === '/api/close') closed++; return {session:'session-id'}; },
   render:() => {}, notice:(text,error) => messages.push({text,error}), sendFrame:() => sent++, clearTimeout, console,
-  profile:() => ({model:true}), batch:{stop:() => {}}, language:'lsm', mode:'train', state:{} };
+  rigOverlay:{clear:() => {}}, profile:() => ({model:true}), batch:{stop:() => {}}, language:'lsm', mode:'train', state:{} };
 vm.createContext(sandbox);
 vm.runInContext('let stream=null, session=null, generation=0, timer=null, countdown=false, recording=false, frameReady=false, cameraStarting=false, cameraListing=false;'+cameraCode, sandbox);
 (async () => {

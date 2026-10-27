@@ -36,7 +36,7 @@ def write_json(path, payload):
     os.replace(temp, path)
 
 
-def train_language(language, epochs, job_id):
+def train_language(language, epochs, job_id, label_ids=None):
     language_info(language)
     if len(job_id) != 32 or any(c not in '0123456789abcdef' for c in job_id):
         raise ValueError('Identificador de entrenamiento inválido.')
@@ -51,7 +51,7 @@ def train_language(language, epochs, job_id):
         from model import build_web_model
 
         tf.keras.utils.set_random_seed(42)
-        raw, y, labels = read_dataset(language, MIN_SAMPLES)
+        raw, y, labels = read_dataset(language, MIN_SAMPLES, label_ids)
         train, validation, test = split_per_class(y)
         X = np.stack([prepare_sequence(sequence) for sequence in raw])
         onehot = tf.keras.utils.to_categorical(y, len(labels))
@@ -160,7 +160,8 @@ if __name__ == '__main__':
     parser.add_argument('--language', required=True)
     parser.add_argument('--epochs', type=int, default=40)
     parser.add_argument('--job-id', required=True)
+    parser.add_argument('--labels', nargs='+', help='IDs de las señas seleccionadas; cada una requiere el mínimo real.')
     args = parser.parse_args()
     if not 5 <= args.epochs <= 200:
         parser.error('Las épocas deben estar entre 5 y 200.')
-    train_language(args.language, args.epochs, args.job_id)
+    train_language(args.language, args.epochs, args.job_id, args.labels)

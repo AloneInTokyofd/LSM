@@ -21,7 +21,9 @@ import numpy as np
 from config import BASE_DIR, FEATURE_DIM, SEQUENCE_LENGTH, CONFIDENCE_THRESHOLD, STABILITY_FRAMES, COOLDOWN_SECONDS
 from sign_languages import LANGUAGES, WEB_DATA, MIN_SAMPLES, RECOMMENDED_SAMPLES, CAPTURE_FPS, language_info, labels_for, validate_label, model_dir, pipeline_spec
 from recognition_features import prepare_sequence, feature_dimension, hand_guard_accept
-from web_dataset import inventory, read_dataset, save_draft, pending_drafts, commit_draft, discard_draft
+from web_dataset import inventory, read_dataset, save_draft, pending_drafts, commit_draft, discard_draft, archive_label
+from admin_auth import AdminGuard
+from rig_overlay import rig_payload
 
 from alphabets import alphabet_status, add_alphabet, add_all_alphabets
 
@@ -34,7 +36,10 @@ def model_metadata(language):
     manifest = directory / 'current.json'
     if not manifest.exists():
         return None
-    version = json.loads(manifest.read_text())['version']
+    selection = json.loads(manifest.read_text())
+    if selection.get('requires_retraining'):
+        return None
+    version = selection['version']
     if not isinstance(version, str) or len(version) != 32 or any(c not in '0123456789abcdef' for c in version):
         raise ValueError('La versión del modelo es inválida.')
     path = directory / version
@@ -77,6 +82,47 @@ class Runtime:
         self.models = {}
         self.process = None
         self.job_id = None
+        self.admin = AdminGuard(WEB_DATA / 'admin' / 'auth.json')
+
+    def invalidate_label_model(self, language, label):
+        manifest = model_dir(language) / 'current.json'
+        if not manifest.is_file():
+            return False
+        selection = json.loads(manifest.read_text())
+        version = selection['version']
+        if not isinstance(version, str) or len(version) != 32 or any(c not in '0123456789abcdef' for c in version):
+            raise ValueError('La versión del modelo es inválida.')
+        metadata = json.loads((manifest.parent / version / 'metadata.json').read_text())
+        if label not in {item['id'] for item in metadata['labels']}:
+            return False
+        selection['requires_retraining'] = True
+        selection['reason'] = 'Se borraron ejemplos de una seña entrenada. Reentrena para actualizar el vocabulario; el modelo anterior está desactivado.'
+        temporary = manifest.with_suffix('.tmp')
+        temporary.write_text(json.dumps(selection, ensure_ascii=False, indent=2), encoding='utf-8')
+        os.replace(temporary, manifest)
+        self.models.pop(language, None)
+        for item in self.sessions.values():
+            if item.language == language:
+                item.reset()
+        return True
+
+    def delete_recordings(self, payload):
+        self.admin.verify(payload.get('password'))
+        if payload.get('confirmed') is not True:
+            raise ValueError('Confirma que quieres borrar todos los ejemplos de esta palabra o letra.')
+        if self.training() or any(item.capture for item in self.sessions.values()):
+            raise ValueError('Detén las grabaciones y espera a que termine el entrenamiento antes de borrar ejemplos.')
+        language, label = payload.get('language'), payload.get('label')
+        # Desactivar primero: ni siquiera un fallo de archivo debe dejar
+        # disponible una clase cuya eliminación ya se ha autorizado.
+        validate_label(language, label)
+        invalidated = self.invalidate_label_model(language, label)
+        result = archive_label(language, label)
+        result['model_invalidated'] = invalidated
+        for item in self.sessions.values():
+            if item.language == language:
+                item.reset()
+        return result
 
     def new_session(self, language):
         language_info(language)
@@ -138,6 +184,12 @@ class Runtime:
             try:
                 result = model_metadata(info['id'])
                 metadata = {k: v for k, v in result[1].items() if k != 'hand_guard'} if result else None
+                if not result:
+                    manifest = model_dir(info['id']) / 'current.json'
+                    if manifest.is_file():
+                        selection = json.loads(manifest.read_text())
+                        if selection.get('requires_retraining'):
+                            error = selection.get('reason', 'Reentrena el modelo tras borrar ejemplos.')
             except (ValueError, KeyError, OSError) as exc:
                 error = str(exc)
             profiles.append({**info, 'labels': rows, 'model': metadata, 'model_error': error, 'drafts': pending_drafts(info['id']), 'alphabet': alphabet_status(info['id'], rows, metadata)})
@@ -192,6 +244,8 @@ class Runtime:
         hands = hands_detected(results)
         output = {'hands': hands, 'buffer': len(session.frames), 'captured': 0, 'draft_id': None,
                   'candidate': None, 'confirmed': None, 'confidence': 0, 'stability': 0, 'rejection_reason': None}
+        if payload.get('rig') is True:
+            output['rig'] = rig_payload(points, image.shape[1], image.shape[0])
         if session.capture is not None:
             capture = session.capture
             capture['points'].append(points)
@@ -249,7 +303,7 @@ class Runtime:
             session.cooldown = now + COOLDOWN_SECONDS
         return output
 
-    def start_training(self, language, epochs):
+    def start_training(self, language, epochs, label_ids=None):
         language_info(language)
         if self.training():
             raise ValueError('Ya hay un entrenamiento en curso.')
@@ -257,7 +311,7 @@ class Runtime:
             raise ValueError('Selecciona entre 5 y 200 épocas.')
         if pending_drafts(language):
             raise ValueError('Pon nombre o descarta las grabaciones pendientes antes de entrenar.')
-        read_dataset(language, MIN_SAMPLES)
+        read_dataset(language, MIN_SAMPLES, label_ids)
         for session in self.sessions.values():
             if session.capture:
                 raise ValueError('Termina o cancela la captura antes de entrenar.')
@@ -268,9 +322,10 @@ class Runtime:
         env['MPLBACKEND'] = 'Agg'
         env['MPLCONFIGDIR'] = str(WEB_DATA / 'cache' / 'matplotlib')
         env['TF_CPP_MIN_LOG_LEVEL'] = '2'
+        selection_args = ['--labels', *label_ids] if label_ids is not None else []
         with (logs / f'{self.job_id}.log').open('w') as output:
             self.process = subprocess.Popen([sys.executable, '-u', str(ROOT / 'web_train.py'),
-                                             '--language', language, '--epochs', str(epochs), '--job-id', self.job_id],
+                                             '--language', language, '--epochs', str(epochs), '--job-id', self.job_id, *selection_args],
                                             cwd=ROOT, env=env, stdout=output, stderr=subprocess.STDOUT)
         return {'job_id': self.job_id}
 
@@ -308,6 +363,7 @@ class Handler(BaseHTTPRequestHandler):
             with RUNTIME.lock:
                 return self.send_data(200, RUNTIME.state())
         files = {'/': ('index.html', 'text/html; charset=utf-8'),
+                 '/static/rig.js': ('rig.js', 'text/javascript; charset=utf-8'),
                  '/static/continuous.js': ('continuous.js', 'text/javascript; charset=utf-8'),
                  '/static/app.js': ('app.js', 'text/javascript; charset=utf-8'),
                  '/static/styles.css': ('styles.css', 'text/css; charset=utf-8')}
@@ -360,11 +416,15 @@ class Handler(BaseHTTPRequestHandler):
                     result = {'discarded': True}
                 elif route == '/api/frame':
                     result = RUNTIME.frame(payload)
+                elif route == '/api/admin/delete-recordings':
+                    result = RUNTIME.delete_recordings(payload)
                 elif route == '/api/train':
-                    result = RUNTIME.start_training(payload.get('language'), payload.get('epochs', 40))
+                    result = RUNTIME.start_training(payload.get('language'), payload.get('epochs', 40), payload.get('labels'))
                 else:
                     return self.send_data(404, {'error': 'Ruta no encontrada.'})
             self.send_data(200, result)
+        except PermissionError as exc:
+            self.send_data(403, {'error': str(exc)})
         except (ValueError, KeyError, TypeError) as exc:
             self.send_data(400, {'error': str(exc)})
         except Exception as exc:

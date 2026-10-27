@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Seña · Laboratorio de lenguas de señas</title>
-  <link rel="stylesheet" href="/static/styles.css"><script defer src="/static/continuous.js"></script><script defer src="/static/app.js"></script>
+  <link rel="stylesheet" href="/static/styles.css"><script defer src="/static/continuous.js"></script><script defer src="/static/rig.js"></script><script defer src="/static/app.js"></script>
 </head>
 <body>
 <div class="layout">
@@ -39,8 +39,9 @@
           <section class="camera-selector" aria-label="Cámaras conectadas"><label for="camera-device">Cámara</label><div class="input-row"><select id="camera-device"><option value="">Cámara predeterminada</option></select><button id="refresh-cameras" class="secondary" type="button">Detectar cámaras</button></div><p id="camera-device-status" class="help" role="status">Activa la cámara para autorizar el acceso y mostrar los nombres disponibles. Cambiar de cámara detiene la toma en curso.</p></section>
           <div class="camera-panel">
             <video id="camera" autoplay playsinline muted hidden></video>
+            <canvas id="rig-overlay" aria-hidden="true" hidden></canvas>
             <div id="camera-placeholder" class="camera-placeholder"><div class="camera-symbol" aria-hidden="true">◉</div><h3>Haz espacio para tus manos</h3><p>Encuadra el rostro, el torso y ambas manos.<br>Busca buena luz y un fondo tranquilo.</p><button id="start-camera" class="primary">Activar cámara <span>↗</span></button></div>
-            <div class="camera-top"><span class="camera-label"><i></i> VISTA EN ESPEJO</span><span id="camera-state">Cámara apagada</span></div>
+            <div class="camera-top"><span class="camera-label"><i></i> VISTA EN ESPEJO</span><div class="camera-top-right"><span id="camera-state">Cámara apagada</span><button id="toggle-rig" type="button" aria-pressed="false" title="Mostrar puntos y conexiones detectados sobre la cámara" disabled>Activar rig</button></div></div>
             <div class="camera-bottom"><span id="capture-instruction">La cámara se activa solo cuando tú lo decides.</span><span id="frame-counter">0 / 30</span></div>
           </div>
           <progress id="frame-progress" max="30" value="0" aria-label="Fotogramas de la secuencia"></progress>
@@ -73,6 +74,7 @@
           </div>
           <div id="training-results" hidden>
             <div class="training-card"><span class="small-label">TU CUADERNO DE EJEMPLOS</span><h3>Enseña una seña.<br>Repite. Dale variedad.</h3><p class="help">Puedes grabar tandas desde 5 tomas. Para entrenar y probar, reúne un mínimo de 30 ejemplos por palabra o letra y 2 señas distintas. Recomendamos entre 30 y 60 por palabra o letra, grabados con variaciones de posición, velocidad, iluminación y personas.</p><div id="sample-list"></div><div class="train-settings"><label for="epochs">Épocas máximas</label><input id="epochs" type="number" min="5" max="200" value="40"></div><button id="train-model" class="primary wide" disabled>Entrenar modelo ↗</button><p id="train-reason" class="help"></p></div>
+            <details class="admin-panel"><summary>Administración · Borrar grabaciones</summary><p class="help">Solo el administrador puede borrar los ejemplos guardados de una palabra o letra de la lengua seleccionada. Se mueven a una carpeta de recuperación. El nombre se conserva. Si la seña pertenecía al modelo activo, este se desactiva hasta que lo reentrenes para que no siga reconociéndola.</p><form id="admin-delete-form"><label for="admin-label">Palabra o letra</label><select id="admin-label" required></select><p id="admin-target" class="help"></p><label for="admin-password">Contraseña de administrador</label><input id="admin-password" type="password" autocomplete="off" maxlength="256" required><label class="admin-confirm"><input id="admin-confirm" type="checkbox" required>Confirmo que quiero borrar todas las grabaciones guardadas de la palabra o letra seleccionada.</label><button id="admin-delete" class="secondary" type="submit">Borrar grabaciones</button><p id="admin-message" class="help" role="status" aria-live="polite"></p></form></details>
           </div>
         </aside>
       </div>

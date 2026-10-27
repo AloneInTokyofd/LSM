@@ -96,3 +96,7 @@ models/jsl/
 models/csl/
 models/lsf/
 models/libras/
+
+# Credenciales administrativas locales y ejemplos retirados
+web_data/admin/
+web_data/trash/

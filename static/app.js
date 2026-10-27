@@ -7,8 +7,10 @@ let stateRequest = null;
 let selectedDraft = null, displayedDraft = null, savingDraft = false;
 let selectedLetter = null, addingAlphabet = false;
 const batch = new ContinuousCapture();
+const rigOverlay = new RigOverlay($('rig-overlay'));
 let batchPause = 3;
 let cameraStarting = false, cameraListing = false;
+let deletingRecordings = false, adminLanguage = null, displayedModelKey = null;
 const profile = () => state?.profiles.find(p => p.id === language);
 
 function notice(message, error = false) {
@@ -20,7 +22,12 @@ async function api(path, body) {
   const options = body === undefined ? {} : {method: 'POST', headers: {'Content-Type':'application/json', 'X-LSM-Token':state?.token || ''}, body:JSON.stringify(body)};
   const response = await fetch(path, options);
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'No se pudo completar la solicitud.');
+  if (!response.ok) {
+    if (response.status === 404 && path.startsWith('/api/admin/')) {
+      throw new Error('El servidor activo es una versión anterior sin administración. Detén web_app.py con Ctrl+C, vuelve a ejecutarlo y recarga la página.');
+    }
+    throw new Error(data.error || 'No se pudo completar la solicitud.');
+  }
   return data;
 }
 function makeOption(value, text) {
@@ -29,6 +36,8 @@ function makeOption(value, text) {
 function render() {
   const p = profile();
   if (!p) return;
+  const modelKey = `${language}:${p.model?.created_at || 'disabled'}`;
+  if (displayedModelKey !== modelKey) { displayedModelKey = modelKey; clearHistory(); }
   $('languages').replaceChildren();
   for (const item of state.profiles) {
     const button = document.createElement('button');
@@ -43,7 +52,7 @@ function render() {
   $('language-name').textContent = p.name;
   $('language-detail').textContent = `${p.region} · Texto de salida en ${p.written.toLowerCase()}`;
   $('output-language').textContent = p.written.toUpperCase();
-  $('model-badge').textContent = p.model ? 'Modelo entrenado' : (p.model_error ? 'Modelo incompatible' : 'Necesita entrenamiento');
+  $('model-badge').textContent = p.model ? 'Modelo entrenado' : (p.model_error ? 'Modelo no disponible' : 'Necesita entrenamiento');
   $('model-badge').className = 'badge' + (p.model ? ' ready' : '');
   $('legacy-note').hidden = !state.legacy_model;
   const drafts = p.drafts || [];
@@ -75,9 +84,11 @@ function render() {
   const populated = p.labels.filter(x => x.samples > 0);
   const eligible = populated.length >= 2 && populated.every(x => x.samples >= state.minimum_samples);
   const busy = state.job?.state === 'running';
+  renderAdmin();
   $('train-model').disabled = !eligible || busy || recording || countdown || batch.active || !!selectedDraft || savingDraft;
   $('train-reason').textContent = selectedDraft ? 'Pon nombre y guarda tu grabación pendiente antes de entrenar.' : busy ? 'Hay un entrenamiento en curso. Puedes seguir viendo su avance.' : eligible ? `Se entrenarán ${populated.length} señas de ${p.code}. Recomendamos entre 30 y ${state.recommended_samples} ejemplos variados por palabra o letra. Las tandas pueden ser de 5 tomas; el entrenamiento requiere 30 por palabra o letra.` : `Completa al menos ${state.minimum_samples} ejemplos de cada seña que empezaste y reúne 2 señas diferentes. Recomendado: 30–${state.recommended_samples} por palabra o letra.`;
   $('start-camera').disabled = busy || cameraStarting;
+  $('toggle-rig').disabled = !stream || cameraStarting;
   $('camera-device').disabled = busy || cameraStarting || savingDraft;
   $('refresh-cameras').disabled = cameraListing || cameraStarting;
   $('record').disabled = !stream || !frameReady || countdown || recording || batch.active || busy || !!selectedDraft || savingDraft;
@@ -220,6 +231,50 @@ function resetResult() {
   $('result-description').textContent = profile()?.model ? 'Activa la cámara y realiza una de las señas entrenadas.' : 'Primero necesitas un modelo entrenado para esta lengua.';
   $('confidence').textContent = '—'; $('confidence-progress').value = 0; $('stability').textContent = 'Esperando una secuencia';
 }
+function renderAdmin() {
+  const p = profile();
+  const previous = adminLanguage === language ? $('admin-label').value : '';
+  if (adminLanguage !== language) {
+    $('admin-password').value = ''; $('admin-confirm').checked = false; $('admin-message').textContent = '';
+  }
+  adminLanguage = language;
+  const available = p.labels.filter(item => item.samples + item.invalid > 0);
+  $('admin-label').replaceChildren(makeOption('', 'Selecciona una palabra o letra'),
+    ...available.map(item => makeOption(item.id, `${item.text} · ${item.samples + item.invalid} grabaciones`)));
+  if (available.some(item => item.id === previous)) $('admin-label').value = previous;
+  else $('admin-confirm').checked = false;
+  const selected = available.find(item => item.id === $('admin-label').value);
+  $('admin-target').textContent = selected ? `${p.code} · ${selected.text}: se retirarán ${selected.samples + selected.invalid} grabaciones del conjunto de entrenamiento.` : `${p.code} · Elige la palabra o letra cuyos ejemplos quieres borrar.`;
+  const blocked = deletingRecordings || state.job?.state === 'running' || recording || countdown || batch.active;
+  $('admin-label').disabled = blocked;
+  $('admin-password').disabled = blocked;
+  $('admin-confirm').disabled = blocked;
+  $('admin-delete').disabled = blocked || !selected;
+}
+async function deleteRecordings(event) {
+  event.preventDefault();
+  if (deletingRecordings) return;
+  const selectedLanguage = language, label = $('admin-label').value;
+  const password = $('admin-password').value, confirmed = $('admin-confirm').checked;
+  if (!label || !password || !confirmed) return;
+  deletingRecordings = true;
+  $('admin-password').value = '';
+  renderAdmin();
+  try {
+    await stopCamera();
+    const result = await api('/api/admin/delete-recordings', {language:selectedLanguage, label, password, confirmed});
+    if (language === selectedLanguage) {
+      $('admin-confirm').checked = false;
+      $('admin-message').textContent = `Se retiraron ${result.deleted} grabaciones. Se conservaron en la carpeta de recuperación. ${result.model_invalidated ? 'El modelo anterior se desactivó para que no siga reconociendo la seña borrada. Reentrena con los ejemplos restantes.' : 'Los ejemplos de esta seña no pertenecían al modelo activo.'}`;
+    }
+    await refresh();
+  } catch (error) {
+    if (language === selectedLanguage) $('admin-message').textContent = error.message;
+  } finally {
+    deletingRecordings = false;
+    render();
+  }
+}
 async function refreshCameras() {
   if (cameraListing) return;
   cameraListing = true;
@@ -277,6 +332,7 @@ async function startCamera() {
   } finally { cameraStarting = false; render(); }
 }
 async function stopCamera() {
+  rigOverlay.clear();
   batch.stop();
   ++generation; clearTimeout(timer); countdown = false; recording = false; frameReady = false;
   if (stream) stream.getTracks().forEach(track => track.stop());
@@ -296,8 +352,9 @@ async function sendFrame(mark) {
     const width = Math.min(video.videoWidth || 640, 640);
     canvas.width = width; canvas.height = Math.round(width * (video.videoHeight || 480) / (video.videoWidth || 640));
     canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-    const result = await api('/api/frame', {session, image:canvas.toDataURL('image/jpeg', .7).split(',')[1], mode});
+    const result = await api('/api/frame', {session, image:canvas.toDataURL('image/jpeg', .7).split(',')[1], mode, rig:rigOverlay.enabled});
     if (mark !== generation) return;
+    rigOverlay.draw(result.rig);
     if (!frameReady) { frameReady = true; render(); }
     $('camera-state').textContent = result.hands ? 'Manos visibles' : 'Buscando manos';
     $('hands-status').textContent = result.hands ? 'Manos detectadas · Mantén el movimiento natural.' : 'Coloca ambas manos dentro del encuadre.';
@@ -450,6 +507,13 @@ function speak() {
   speechSynthesis.cancel(); const speech = new SpeechSynthesisUtterance(lastSpoken); speech.lang = locale; speech.voice = voice; speechSynthesis.speak(speech);
 }
 $('start-camera').addEventListener('click', startCamera);
+$('toggle-rig').addEventListener('click', () => {
+  rigOverlay.setEnabled(!rigOverlay.enabled);
+  $('toggle-rig').setAttribute('aria-pressed', String(rigOverlay.enabled));
+  $('toggle-rig').textContent = rigOverlay.enabled ? 'Ocultar rig' : 'Activar rig';
+});
+$('admin-delete-form').addEventListener('submit', deleteRecordings);
+$('admin-label').addEventListener('change', () => { $('admin-confirm').checked = false; $('admin-message').textContent = ''; renderAdmin(); });
 $('refresh-cameras').addEventListener('click', refreshCameras);
 $('camera-device').addEventListener('change', async () => {
    if (stream) { await stopCamera(); await startCamera(); }
