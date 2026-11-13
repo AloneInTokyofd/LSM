@@ -92,7 +92,7 @@ ACCOUNTS = Accounts(WEB_DATA / "accounts" / "team.sqlite3")
 @lru_cache(maxsize=4)
 def public_model_metadata(path, modified, size):
     """Retiene solo los campos de la vista pública, sin guardar referencias pesadas."""
-    full = json.loads(path.read_text())
+    full = json.loads(path.read_text(encoding='utf-8'))
     summary = {key: full[key] for key in (
         'language', 'pipeline', 'labels', 'created_at', 'preprocessing',
     ) if key in full}
@@ -108,7 +108,7 @@ def model_metadata(language, *, public=False):
     manifest = directory / 'current.json'
     if not manifest.exists():
         return None
-    selection = json.loads(manifest.read_text())
+    selection = json.loads(manifest.read_text(encoding='utf-8'))
     if selection.get('requires_retraining'):
         return None
     version = selection['version']
@@ -120,7 +120,7 @@ def model_metadata(language, *, public=False):
         stat = metadata_path.stat()
         meta = public_model_metadata(metadata_path, stat.st_mtime_ns, stat.st_size)
     else:
-        meta = json.loads(metadata_path.read_text())
+        meta = json.loads(metadata_path.read_text(encoding='utf-8'))
     if meta['language'] != language or meta['pipeline'] != pipeline_spec():
         raise ValueError('El modelo no corresponde a esta lengua o a la configuración de captura actual.')
     feature_dimension(meta.get('preprocessing'))
@@ -383,11 +383,11 @@ class Runtime:
         manifest = model_dir(language) / 'current.json'
         if not manifest.is_file():
             return False
-        selection = json.loads(manifest.read_text())
+        selection = json.loads(manifest.read_text(encoding='utf-8'))
         version = selection['version']
         if not isinstance(version, str) or len(version) != 32 or any(c not in '0123456789abcdef' for c in version):
             raise ValueError('La versión del modelo es inválida.')
-        metadata = json.loads((manifest.parent / version / 'metadata.json').read_text())
+        metadata = json.loads((manifest.parent / version / 'metadata.json').read_text(encoding='utf-8'))
         if label not in {item['id'] for item in metadata['labels']}:
             return False
         selection['requires_retraining'] = True
@@ -473,7 +473,7 @@ class Runtime:
         path = WEB_DATA / 'jobs' / f'{self.job_id}.json'
         state = {'id': self.job_id, 'state': 'running', 'message': 'Preparando entrenamiento…', 'epoch': 0}
         if path.exists():
-            state = json.loads(path.read_text())
+            state = json.loads(path.read_text(encoding='utf-8'))
         if state.get('state') == 'running' and self.process is None:
             pid = state.get('pid')
             if not process_alive(pid):
@@ -512,7 +512,7 @@ class Runtime:
                 if not result:
                     manifest = model_dir(info['id']) / 'current.json'
                     if manifest.is_file():
-                        selection = json.loads(manifest.read_text())
+                        selection = json.loads(manifest.read_text(encoding='utf-8'))
                         if selection.get('requires_retraining'):
                             error = selection.get('reason', 'Reentrena el modelo tras borrar ejemplos.')
             except (ValueError, KeyError, OSError) as exc:

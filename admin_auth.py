@@ -63,29 +63,45 @@ class AdminGuard:
             self.window_started = now
         valid_input = isinstance(password, str) and 0 < len(password) <= 256
         supplied = password.encode('utf-8') if valid_input else b''
+        configured = False
+        # La clave del equipo funciona en todas las copias que incluyen su verificador.
+        # Las credenciales de una instalación se conservan como acceso adicional.
+        if self.default_config is not None:
+            team_valid = self._matches_config(self.default_config, supplied)
+            configured = team_valid is not None
+            if valid_input and team_valid:
+                self._check(True, now)
+                return
         secret = os.environ.get('SENA_ADMIN_PASSWORD')
         if secret:
-            self._check(valid_input and hmac.compare_digest(supplied, secret.encode('utf-8')), now)
-            return
-        try:
-            try:
-                stored = self.config_path.read_text(encoding='utf-8')
-            except FileNotFoundError:
-                if self.default_config is None:
-                    raise
-                stored = self.default_config.read_text(encoding='utf-8')
-            config = json.loads(stored)
-            if config['algorithm'] != 'pbkdf2-sha256' or config['iterations'] != ITERATIONS:
-                raise ValueError('Configuración administrativa incompatible.')
-            salt = bytes.fromhex(config['salt'])
-            expected = bytes.fromhex(config['digest'])
-        except (OSError, ValueError, KeyError, TypeError):
+            configured = True
+            valid = valid_input and hmac.compare_digest(supplied, secret.encode('utf-8'))
+        else:
+            local_valid = self._matches_config(self.config_path, supplied)
+            configured = configured or local_valid is not None
+            valid = valid_input and bool(local_valid)
+        if not configured:
             raise PermissionError(
                 'Admin no está configurado en esta instalación. Si ejecutas Seña en tu equipo, '
                 'ejecuta admin_auth.py desde Terminal. En un servidor compartido, solicita la configuración a quien lo administra.'
-            ) from None
+            )
+        self._check(valid, now)
+
+    @staticmethod
+    def _matches_config(path, supplied):
+        """Devuelve None si el verificador falta o está dañado; False si la clave difiere."""
+        try:
+            config = json.loads(path.read_text(encoding='utf-8'))
+            if config['algorithm'] != 'pbkdf2-sha256' or config['iterations'] != ITERATIONS:
+                return None
+            salt = bytes.fromhex(config['salt'])
+            expected = bytes.fromhex(config['digest'])
+            if len(salt) != 16 or len(expected) != 32:
+                return None
+        except (OSError, ValueError, KeyError, TypeError):
+            return None
         digest = hashlib.pbkdf2_hmac('sha256', supplied, salt, config['iterations'])
-        self._check(valid_input and hmac.compare_digest(digest, expected), now)
+        return hmac.compare_digest(digest, expected)
 
     def _check(self, valid, now):
         if not valid:

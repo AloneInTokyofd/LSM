@@ -29,10 +29,10 @@ def retained_label_ids(language, label_ids):
     if label_ids is None: return None
     manifest=model_dir(language)/'current.json'
     if not manifest.exists():return label_ids
-    selection=json.loads(manifest.read_text())
+    selection=json.loads(manifest.read_text(encoding='utf-8'))
     from web_dataset import validate_identifier, inventory
     version=selection.get('version');validate_identifier(version)
-    meta=json.loads((model_dir(language)/version/'metadata.json').read_text())
+    meta=json.loads((model_dir(language)/version/'metadata.json').read_text(encoding='utf-8'))
     if meta['pipeline'] != pipeline_spec():return label_ids
     counts={r['id']:r['samples'] for r in inventory(language)}
     retained=[l['id'] for l in meta['labels'] if counts.get(l['id'],0)>0]
@@ -255,12 +255,12 @@ def train_language(language, epochs, job_id, label_ids=None, strategy="baseline"
         previous_bundle = None
         manifest = model_dir(language) / 'current.json'
         if manifest.exists():
-            previous_version = json.loads(manifest.read_text()).get('version')
+            previous_version = json.loads(manifest.read_text(encoding='utf-8')).get('version')
             from web_dataset import validate_identifier
             if previous_version:
                 validate_identifier(previous_version)
                 previous_path = model_dir(language) / previous_version
-                old_meta = json.loads((previous_path / 'metadata.json').read_text())
+                old_meta = json.loads((previous_path / 'metadata.json').read_text(encoding='utf-8'))
                 if old_meta['pipeline'] == pipeline_spec():
                     old_model = load_inference_model(previous_path / 'model.keras')
                     previous_bundle = (old_model, old_meta)

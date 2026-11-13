@@ -13,7 +13,7 @@ from dataset_tools import audit_dataset, export_dataset, import_dataset, sample_
 
 def current_selection(root):
     try:
-        selected = json.loads((root / 'current.json').read_text())
+        selected = json.loads((root / 'current.json').read_text(encoding='utf-8'))
         return selected if isinstance(selected, dict) else {}
     except (OSError, ValueError):
         return {}
@@ -25,7 +25,7 @@ def compatible_metadata(language):
         try:
             version = path.parent.name
             validate_identifier(version)
-            meta = json.loads(path.read_text())
+            meta = json.loads(path.read_text(encoding='utf-8'))
             if meta['language'] != language or meta['pipeline'] != pipeline_spec():
                 continue
             feature_dimension(meta.get('preprocessing'))
@@ -75,7 +75,7 @@ def load_inference_model(path):
 def activate_version(language, version):
     validate_identifier(version)
     root=model_dir(language)
-    metadata=json.loads((root/version/'metadata.json').read_text())
+    metadata=json.loads((root/version/'metadata.json').read_text(encoding='utf-8'))
     if metadata['language']!=language or metadata['pipeline']!=pipeline_spec():
         raise ValueError('El modelo pertenece a otra lengua o configuración.')
     feature_dimension(metadata.get('preprocessing'))
@@ -133,7 +133,7 @@ def recent_activity():
     result=[]
     for p in files:
         try:
-            record=json.loads(p.read_text())
+            record=json.loads(p.read_text(encoding='utf-8'))
             result.append({'kind':'training' if p in jobs else 'deletion','time':p.stat().st_mtime,
                            'language':record.get('language'),'state':record.get('state','archived'),
                            'message':record.get('message',f"{record.get('samples',1)} ejemplos retirados")})

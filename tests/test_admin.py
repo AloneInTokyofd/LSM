@@ -12,7 +12,7 @@ import numpy as np
 import sign_languages as langs
 import web_dataset as data
 import web_app
-from admin_auth import AdminGuard
+from admin_auth import AdminGuard, configure_password
 
 
 # Ayudante de prueba para configure.
@@ -39,7 +39,9 @@ class AdminTests(unittest.TestCase):
         self.points = np.ones((data.SEQUENCE_LENGTH, data.FEATURE_DIM), dtype=np.float32)
         self.file = data.save_sequence('lsm', 'hola', self.points)
         data.save_sequence('lsm', 'gracias', self.points)
-        data.save_sequence('asl', 'hola', self.points)
+        self.historical = self.root / 'asl' / 'historical.npz'
+        self.historical.parent.mkdir(parents=True)
+        self.historical.write_bytes(b'historical examples')
         self.payload = {'language':'lsm', 'label':'hola', 'password':'test-only-password', 'confirmed':True}
 
     # Elimina los recursos temporales creados durante la prueba.
@@ -96,7 +98,7 @@ class AdminTests(unittest.TestCase):
         self.assertEqual(json.loads((archived / 'deletion.json').read_text())['label'], 'hola')
         self.assertEqual(data.inventory('lsm')[0]['samples'], 0)
         self.assertEqual(data.inventory('lsm')[1]['samples'], 1)
-        self.assertEqual(data.inventory('asl')[0]['samples'], 1)
+        self.assertEqual(self.historical.read_bytes(), b'historical examples')
         self.assertIn('hola', [label['id'] for label in langs.labels_for('lsm')])
         with self.assertRaises(ValueError):
             self.runtime.delete_recordings(self.payload)
@@ -162,12 +164,81 @@ class AdminTests(unittest.TestCase):
             responses = []
             handler.send_data = lambda status, data: responses.append((status, data))
             with patch.object(web_app, 'RUNTIME', self.runtime), \
-                 patch.object(web_app.team_access, 'authenticate', return_value={'user':{'id':'owner','role':'admin'},'csrf':web_app.TOKEN}):
+                 patch.object(web_app.team_access, 'authenticate', return_value={'user':{'id':'owner','role':'admin','studio_admin':True},'csrf':web_app.TOKEN}):
                 handler.do_POST()
             return responses[0]
         self.assertEqual(request(self.payload, 'wrong-csrf')[0], 403)
         self.assertEqual(request({**self.payload, 'password':''}, web_app.TOKEN)[0], 403)
         self.assertEqual(request(self.payload, web_app.TOKEN)[0], 200)
+
+
+class SharedAdminPasswordTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name)
+        self.local = self.root / 'local.json'
+        self.team = self.root / 'team.json'
+        configure_password(self.team, 'shared-test-password')
+        configure_password(self.local, 'local-test-password')
+        self.environment = patch.dict('os.environ', {}, clear=True)
+        self.environment.start()
+
+    def tearDown(self):
+        self.environment.stop()
+        self.temp.cleanup()
+
+    def test_shared_password_works_with_conflicting_local_configuration(self):
+        original = self.local.read_bytes()
+        guard = AdminGuard(self.local, default_config=self.team)
+        guard.verify('shared-test-password')
+        guard.verify('local-test-password')
+        self.assertEqual(self.local.read_bytes(), original)
+
+    def test_shared_password_works_with_environment_override(self):
+        with patch.dict('os.environ', {'SENA_ADMIN_PASSWORD': 'environment-test-password'}):
+            guard = AdminGuard(self.local, default_config=self.team)
+            guard.verify('shared-test-password')
+            guard.verify('environment-test-password')
+            with self.assertRaises(PermissionError):
+                guard.verify('local-test-password')
+
+    def test_shared_password_survives_missing_or_damaged_local_config(self):
+        for content in (None, '{broken', 'null', '{"algorithm":"unknown"}'):
+            with self.subTest(content=content):
+                if content is None:
+                    self.local.unlink(missing_ok=True)
+                else:
+                    self.local.write_text(content)
+                guard = AdminGuard(self.local, default_config=self.team)
+                guard.verify('shared-test-password')
+                with self.assertRaisesRegex(PermissionError, 'incorrecta'):
+                    guard.verify('wrong')
+
+    def test_standalone_environment_override_remains_exclusive(self):
+        with patch.dict('os.environ', {'SENA_ADMIN_PASSWORD': 'environment-test-password'}):
+            guard = AdminGuard(self.local)
+            guard.verify('environment-test-password')
+            for password in ('shared-test-password', 'local-test-password'):
+                with self.assertRaises(PermissionError):
+                    guard.verify(password)
+
+    def test_rate_limit_applies_to_shared_password_and_expires(self):
+        guard = AdminGuard(self.local, default_config=self.team)
+        with patch('admin_auth.time.monotonic', return_value=1000):
+            for _ in range(5):
+                with self.assertRaises(PermissionError):
+                    guard.verify('wrong')
+            with self.assertRaisesRegex(PermissionError, 'Demasiados intentos'):
+                guard.verify('shared-test-password')
+        with patch('admin_auth.time.monotonic', return_value=1301):
+            guard.verify('shared-test-password')
+            self.assertEqual(guard.failures, 0)
+
+    def test_all_malformed_verifiers_fail_closed(self):
+        self.local.write_text('{}')
+        self.team.write_text('null')
+        with self.assertRaisesRegex(PermissionError, 'no está configurado'):
+            AdminGuard(self.local, default_config=self.team).verify('shared-test-password')
 
 
 if __name__ == '__main__':

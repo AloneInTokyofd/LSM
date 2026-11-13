@@ -170,7 +170,7 @@ def draft_owner(language, identifier):
         return sequence_metadata(path).get('owner_id')
     receipt = root / f'{identifier}.saved.json'
     if receipt.is_file():
-        return json.loads(receipt.read_text()).get('owner_id')
+        return json.loads(receipt.read_text(encoding='utf-8')).get('owner_id')
     raise ValueError('No existe esa toma pendiente.')
 
 

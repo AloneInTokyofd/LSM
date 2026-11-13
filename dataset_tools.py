@@ -263,7 +263,7 @@ def persistent_split(targets, groups, path, seed=42, fingerprints=None, label_na
         parts=grouped_split(targets,groups,seed)
         mapping={str(g):name for name,idx in zip(('train','validation','test'),parts) for g in set(groups[idx])}
     else:
-        stored=json.loads(path.read_text())
+        stored=json.loads(path.read_text(encoding='utf-8'))
         mapping=stored['groups']
         if any(v not in ('train','validation','test') for v in mapping.values()):raise ValueError('Partición persistente inválida.')
         # A participant may replace several session groups later. Refuse to
@@ -350,5 +350,5 @@ def persistent_split(targets, groups, path, seed=42, fingerprints=None, label_na
     path.parent.mkdir(parents=True,exist_ok=True)
     samples = stored.get('samples', {}) if path.exists() else {}
     if fingerprints is not None:samples.update({h:mapping[g] for h,g in zip(fingerprints,groups)})
-    temp=path.with_suffix('.tmp');temp.write_text(json.dumps({'version':1,'groups':mapping,'samples':samples},ensure_ascii=False));os.replace(temp,path)
+    temp=path.with_suffix('.tmp');temp.write_text(json.dumps({'version':1,'groups':mapping,'samples':samples},ensure_ascii=False), encoding='utf-8');os.replace(temp,path)
     return tuple(parts)

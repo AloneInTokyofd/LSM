@@ -44,7 +44,7 @@ def calibration_split(targets, groups, validation, path, fingerprints=None):
             raise ValueError('Una secuencia de validación aparece también en entrenamiento o prueba.')
     classes = np.unique(y)
     path = Path(path)
-    stored = json.loads(path.read_text()) if path.exists() else {'version': 1, 'groups': {}, 'samples': {}}
+    stored = json.loads(path.read_text(encoding='utf-8')) if path.exists() else {'version': 1, 'groups': {}, 'samples': {}}
     assignments = dict(stored.get('groups', {}))
     sample_roles = dict(stored.get('samples', {}))
     if stored.get('version') != 1 or any(role not in ('selection', 'calibration') for role in [*assignments.values(), *sample_roles.values()]):
